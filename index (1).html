@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>대행사별 파일 분할기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fflate/0.8.2/fflate.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --purple: #7132f5;
+  --purple-dark: #5741d8;
+  --purple-deep: #5b1ecf;
+  --purple-subtle: rgba(133,91,251,0.12);
+  --purple-subtle-hover: rgba(133,91,251,0.2);
+  --near-black: #101114;
+  --gray: #686b82;
+  --gray-light: #9497a9;
+  --border: #dedee5;
+  --border-subtle: rgba(104,107,130,0.2);
+  --surface: #ffffff;
+  --bg: #f8f8fb;
+  --green: #149e61;
+  --green-bg: rgba(20,158,97,0.12);
+  --green-text: #026b3f;
+  --shadow-sm: rgba(0,0,0,0.03) 0px 4px 24px;
+  --shadow-xs: rgba(16,24,40,0.04) 0px 1px 4px;
+  --font: 'IBM Plex Sans KR', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --radius-btn: 12px;
+  --radius-card: 16px;
+  --radius-sm: 8px;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--near-black);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 20px 64px;
+}
+
+/* ── hero header ── */
+.site-header {
+  width: 100%;
+  max-width: 640px;
+  padding: 48px 0 40px;
+}
+
+.logo-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.logo-icon {
+  width: 32px; height: 32px;
+  background: var(--purple);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.logo-icon svg { width: 18px; height: 18px; color: #fff; }
+.logo-text { font-size: 14px; font-weight: 600; color: var(--near-black); letter-spacing: -0.2px; }
+
+.hero-title {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.22;
+  color: var(--near-black);
+  margin-bottom: 12px;
+}
+
+.hero-title span { color: var(--purple); }
+
+.hero-desc {
+  font-size: 16px;
+  color: var(--gray);
+  line-height: 1.6;
+}
+
+/* ── badges ── */
+.badge-row { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
+.badge {
+  font-size: 12px; font-weight: 500;
+  padding: 4px 10px; border-radius: 6px;
+  background: var(--purple-subtle); color: var(--purple-dark);
+}
+.badge.green { background: var(--green-bg); color: var(--green-text); }
+
+/* ── container ── */
+.container { width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 12px; }
+
+/* ── cards ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 28px;
+  box-shadow: var(--shadow-sm);
+}
+
+.step-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gray-light);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.card-heading {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--near-black);
+  margin-bottom: 16px;
+  letter-spacing: -0.2px;
+}
+
+/* ── upload zone ── */
+#upload-zone {
+  border: 1.5px dashed var(--border);
+  border-radius: 12px;
+  padding: 40px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: var(--bg);
+}
+
+#upload-zone:hover, #upload-zone.drag-over {
+  border-color: var(--purple);
+  background: var(--purple-subtle);
+}
+
+#upload-zone.has-file {
+  border-style: solid;
+  border-color: var(--green);
+  background: var(--green-bg);
+  cursor: default;
+  pointer-events: none;
+}
+
+.upload-icon-wrap {
+  width: 48px; height: 48px;
+  background: var(--purple-subtle);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+  transition: background 0.15s;
+}
+
+#upload-zone.has-file .upload-icon-wrap { background: var(--green-bg); }
+#upload-zone.has-file .upload-icon-wrap svg { color: var(--green); }
+
+.upload-icon-wrap svg { width: 22px; height: 22px; color: var(--purple); }
+
+#upload-label { font-size: 15px; font-weight: 600; color: var(--near-black); margin-bottom: 4px; }
+#upload-sub { font-size: 13px; color: var(--gray-light); }
+
+/* ── form elements ── */
+.field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray);
+  margin-bottom: 6px;
+  letter-spacing: 0.1px;
+}
+
+select, input[type="text"] {
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-family: var(--font);
+  color: var(--near-black);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  -webkit-appearance: none;
+}
+
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239497a9' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+select:focus, input[type="text"]:focus {
+  border-color: var(--purple);
+  box-shadow: 0 0 0 3px rgba(113,50,245,0.1);
+}
+
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field { margin-bottom: 16px; }
+.field:last-child { margin-bottom: 0; }
+
+.field-hint {
+  font-size: 12px;
+  color: var(--gray-light);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+/* ── filename input with prefix ── */
+.input-group { display: flex; }
+.input-prefix {
+  height: 42px;
+  display: flex; align-items: center;
+  padding: 0 12px;
+  background: var(--purple-subtle);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--purple);
+  font-family: var(--mono);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.input-group input {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  flex: 1;
+}
+
+/* ── filename preview ── */
+.filename-preview {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 14px;
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--gray);
+  margin-top: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.filename-preview .agency-part { color: var(--purple); font-weight: 600; }
+
+/* ── divider ── */
+.divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+/* ── chips ── */
+.chips-section-label { font-size: 12px; font-weight: 600; color: var(--gray); margin-bottom: 8px; }
+.chips-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font-size: 12px; font-weight: 500;
+  padding: 4px 10px; border-radius: 20px;
+  background: var(--purple-subtle);
+  color: var(--purple-dark);
+  border: 1px solid rgba(113,50,245,0.15);
+}
+.chip-more { font-size: 12px; color: var(--gray-light); padding: 4px 4px; align-self: center; }
+.preview-count { font-size: 12px; color: var(--gray-light); margin-top: 10px; }
+
+/* ── CTA button ── */
+.btn-primary {
+  width: 100%;
+  height: 48px;
+  background: var(--purple);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--font);
+  border: none;
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  letter-spacing: -0.1px;
+  box-shadow: 0 2px 12px rgba(113,50,245,0.25);
+}
+
+.btn-primary:hover:not(:disabled) { opacity: 0.88; }
+.btn-primary:active:not(:disabled) { transform: scale(0.99); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+.btn-secondary {
+  width: 100%;
+  height: 42px;
+  background: transparent;
+  color: var(--gray);
+  font-size: 13px;
+  font-family: var(--font);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: 10px;
+}
+
+.btn-secondary:hover { border-color: var(--gray-light); color: var(--near-black); }
+
+/* ── progress ── */
+.progress-bar-wrap {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-top: 14px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--purple), var(--purple-dark));
+  border-radius: 2px;
+  transition: width 0.25s ease;
+}
+
+.progress-label { font-size: 12px; color: var(--gray-light); margin-top: 6px; }
+
+/* ── result items ── */
+.result-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+.result-item:last-child { border-bottom: none; }
+.result-item .filename { flex: 1; color: var(--near-black); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.result-item .row-count { font-size: 12px; color: var(--gray-light); flex-shrink: 0; font-family: var(--mono); }
+.icon-success { color: var(--green); flex-shrink: 0; }
+svg.icon { width: 16px; height: 16px; flex-shrink: 0; }
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="logo-mark">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 17H5a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3M13 21l4-4m0 0l4 4m-4-4v8"/>
+      </svg>
+    </div>
+    <span class="logo-text">SplitSheet</span>
+  </div>
+
+  <h1 class="hero-title">대행사별<br><span>파일 분할</span>, 한 번에.</h1>
+  <p class="hero-desc">엑셀 파일을 업로드하면 대행사명 기준으로 자동 분할합니다.<br>원본 스타일·셀 서식·고정 행이 그대로 유지됩니다.</p>
+
+  <div class="badge-row">
+    <span class="badge">원본 스타일 유지</span>
+    <span class="badge">셀 고정 유지</span>
+    <span class="badge green">ZIP 일괄 다운로드</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Step 1 -->
+  <div class="card">
+    <div class="step-label">Step 1</div>
+    <div class="card-heading">파일 업로드</div>
+    <div id="upload-zone"
+      onclick="document.getElementById('file-input').click()"
+      ondragover="ev(event,'drag-over',true)" ondragleave="ev(event,'drag-over',false)" ondrop="onDrop(event)">
+      <div class="upload-icon-wrap" id="upload-icon-wrap">
+        <svg id="upload-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M16 12l-4-4m0 0l-4 4m4-4v12"/>
+        </svg>
+      </div>
+      <div id="upload-label">클릭하거나 파일을 드래그하세요</div>
+      <div id="upload-sub" style="margin-top:4px;">.xlsx 파일만 지원합니다</div>
+      <input type="file" id="file-input" accept=".xlsx" style="display:none" onchange="handleFile(event)">
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="card hidden" id="config-card">
+    <div class="step-label">Step 2</div>
+    <div class="card-heading">설정</div>
+
+    <div class="row-2">
+      <div class="field">
+        <label class="field-label" for="sheet-select">시트 선택</label>
+        <select id="sheet-select" onchange="onSheetChange()"></select>
+      </div>
+      <div class="field">
+        <label class="field-label" for="col-select">대행사명 컬럼</label>
+        <select id="col-select" onchange="onColChange()"></select>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="field">
+      <label class="field-label" for="filename-suffix">파일명 규칙</label>
+      <div class="input-group">
+        <span class="input-prefix">{agency}_</span>
+        <input type="text" id="filename-suffix" placeholder="2025년5월_성과보고서" oninput="updateFilenamePreview()">
+      </div>
+      <div class="field-hint">대행사명이 앞에 자동으로 붙습니다</div>
+      <div class="filename-preview" id="filename-preview"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div>
+      <div class="chips-section-label">발견된 대행사</div>
+      <div class="chips-wrap" id="agency-chips"></div>
+      <div class="preview-count" id="preview-count"></div>
+    </div>
+  </div>
+
+  <!-- Step 3 -->
+  <div id="split-area" class="hidden">
+    <button class="btn-primary" id="split-btn" onclick="splitFiles()">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-8-4l4 4 4-4m-4-8v12"/>
+      </svg>
+      ZIP으로 일괄 다운로드
+    </button>
+    <div class="progress-bar-wrap hidden" id="progress-wrap">
+      <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+    </div>
+    <div class="progress-label hidden" id="progress-label"></div>
+  </div>
+
+  <!-- Result -->
+  <div class="card hidden" id="result-card">
+    <div class="step-label">완료</div>
+    <div class="card-heading" style="margin-bottom:12px;">다운로드 목록</div>
+    <div id="result-list"></div>
+    <button class="btn-secondary" onclick="location.reload()">↺ 다시 시작</button>
+  </div>
+
+</div>
+
+<script>
+let rawFileBytes = null;
+let zipEntries = {};
+let sharedStrings = [];
+let sheetNames = [];
+let sheetXmlNames = {};
+let currentSheet = null;
+let parsedRows = {};
+let headerRowNum = null;
+
+function ev(e, cls, add) { e.preventDefault(); document.getElementById('upload-zone').classList[add?'add':'remove'](cls); }
+function onDrop(e) { e.preventDefault(); ev(e,'drag-over',false); if(e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); }
+function handleFile(e) { if(e.target.files[0]) processFile(e.target.files[0]); }
+
+function processFile(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    rawFileBytes = new Uint8Array(e.target.result);
+    fflate.unzip(rawFileBytes, (err, decompressed) => {
+      if (err) { alert('파일을 읽을 수 없습니다: ' + err); return; }
+      zipEntries = decompressed;
+      parseWorkbook();
+      parseSharedStrings();
+
+      const zone = document.getElementById('upload-zone');
+      zone.classList.add('has-file');
+      document.getElementById('upload-icon-svg').innerHTML = '<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-width="1.8"/>';
+      document.getElementById('upload-label').textContent = file.name;
+      document.getElementById('upload-sub').textContent = (file.size/1024).toFixed(0) + ' KB · 업로드 완료';
+
+      const sel = document.getElementById('sheet-select');
+      sel.innerHTML = '';
+      sheetNames.forEach(n => { const o = document.createElement('option'); o.value = o.textContent = n; sel.appendChild(o); });
+      document.getElementById('config-card').classList.remove('hidden');
+      document.getElementById('split-area').classList.remove('hidden');
+      loadSheet(sheetNames[0]);
+    });
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseWorkbook() {
+  const xml = new TextDecoder().decode(zipEntries['xl/workbook.xml']);
+  sheetNames = []; sheetXmlNames = {};
+  const sheetMatches = [...xml.matchAll(/<sheet\s[^>]*name="([^"]*)"[^>]*r:id="([^"]*)"/g)];
+  const relsXml = new TextDecoder().decode(zipEntries['xl/_rels/workbook.xml.rels']);
+  const relMap = {};
+  for (const m of relsXml.matchAll(/Id="([^"]*)"[^>]*Target="([^"]*)"/g)) relMap[m[1]] = m[2];
+  sheetMatches.forEach(m => {
+    const name = m[1], rId = m[2];
+    sheetNames.push(name);
+    sheetXmlNames[name] = 'xl/' + relMap[rId];
+  });
+}
+
+function parseSharedStrings() {
+  sharedStrings = [];
+  if (!zipEntries['xl/sharedStrings.xml']) return;
+  const xml = new TextDecoder().decode(zipEntries['xl/sharedStrings.xml']);
+  for (const si of xml.matchAll(/<si>([\s\S]*?)<\/si>/g)) {
+    const texts = [...si[1].matchAll(/<t[^>]*>([^<]*)<\/t>/g)].map(m => decodeXml(m[1]));
+    sharedStrings.push(texts.join(''));
+  }
+}
+
+function decodeXml(s) {
+  return s.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'");
+}
+
+function loadSheet(name) {
+  currentSheet = name;
+  const xmlPath = sheetXmlNames[name];
+  const xml = new TextDecoder().decode(zipEntries[xmlPath]);
+  const rowData = [];
+  for (const rm of xml.matchAll(/<row\s([^>]*)>([\s\S]*?)<\/row>/g)) {
+    const attrs = rm[1], rowXml = rm[0];
+    const rMatch = attrs.match(/\br="(\d+)"/);
+    rowData.push({ rowXml, wsRowNum: rMatch ? parseInt(rMatch[1]) : null });
+  }
+  parsedRows[xmlPath] = rowData;
+
+  let bestRow = rowData[0], bestCount = 0;
+  for (const rd of rowData.slice(0, 5)) {
+    const count = (rd.rowXml.match(/<c /g)||[]).length;
+    if (count > bestCount) { bestCount = count; bestRow = rd; }
+  }
+  headerRowNum = bestRow ? bestRow.wsRowNum : 2;
+  populateColSelect(bestRow);
+  updatePreview();
+  updateFilenamePreview();
+}
+
+function colLetterToIndex(letter) {
+  let n = 0;
+  for (const ch of letter.toUpperCase()) n = n * 26 + ch.charCodeAt(0) - 64;
+  return n - 1;
+}
+
+function populateColSelect(headerRow) {
+  const sel = document.getElementById('col-select');
+  sel.innerHTML = '';
+  if (!headerRow) return;
+  for (const cm of headerRow.rowXml.matchAll(/<c\s([^>]*)>([\s\S]*?)<\/c>/g)) {
+    const fullCell = cm[0];
+    const rMatch = cm[1].match(/\br="([A-Z]+\d+)"/);
+    if (!rMatch) continue;
+    const colLetter = rMatch[1].match(/^([A-Z]+)/)[1];
+    const tMatch = fullCell.match(/\bt="([^"]*)"/);
+    const vMatch = fullCell.match(/<v>([^<]*)<\/v>/);
+    let val = '';
+    if (vMatch) val = (tMatch && tMatch[1]==='s') ? (sharedStrings[parseInt(vMatch[1])]||'') : vMatch[1];
+    const o = document.createElement('option');
+    o.value = colLetter;
+    o.textContent = val || ('컬럼 ' + colLetter);
+    if (val.includes('대행사')) o.selected = true;
+    sel.appendChild(o);
+  }
+}
+
+function onSheetChange() { loadSheet(document.getElementById('sheet-select').value); }
+function onColChange() { updatePreview(); }
+
+function getAgencyMap() {
+  const xmlPath = sheetXmlNames[currentSheet];
+  const agencyCol = document.getElementById('col-select').value;
+  const rows = parsedRows[xmlPath] || [];
+  const map = new Map();
+  for (const rd of rows) {
+    if (rd.wsRowNum <= headerRowNum) continue;
+    const cellRx = new RegExp('<c\\s[^>]*r="' + agencyCol + '\\d+"[^>]*>([\\s\\S]*?)<\\/c>');
+    const cm = rd.rowXml.match(cellRx);
+    if (!cm) continue;
+    const tM = cm[0].match(/\bt="([^"]*)"/);
+    const vM = cm[0].match(/<v>([^<]*)<\/v>/);
+    if (!vM) continue;
+    const val = ((tM && tM[1]==='s') ? (sharedStrings[parseInt(vM[1])]||'') : vM[1]).trim();
+    if (!val) continue;
+    if (!map.has(val)) map.set(val, []);
+    map.get(val).push(rd);
+  }
+  return map;
+}
+
+function updatePreview() {
+  const map = getAgencyMap();
+  const chips = document.getElementById('agency-chips');
+  chips.innerHTML = '';
+  const arr = [...map.keys()];
+  arr.slice(0,15).forEach(a => { const el=document.createElement('span'); el.className='chip'; el.textContent=a; chips.appendChild(el); });
+  if (arr.length>15) { const el=document.createElement('span'); el.className='chip-more'; el.textContent='+'+(arr.length-15)+'개'; chips.appendChild(el); }
+  document.getElementById('preview-count').textContent = '총 '+map.size+'개 대행사 → '+map.size+'개 파일 생성 예정';
+}
+
+function updateFilenamePreview() {
+  const suffix = document.getElementById('filename-suffix').value;
+  const map = getAgencyMap();
+  const sample = [...map.keys()][0] || '(주)예지솔루션';
+  document.getElementById('filename-preview').innerHTML =
+    '<span class="agency-part">'+sample+'</span>'+(suffix?'_'+suffix:'')+'.xlsx';
+}
+
+async function splitFiles() {
+  const btn = document.getElementById('split-btn');
+  btn.disabled = true;
+  document.getElementById('progress-wrap').classList.remove('hidden');
+  document.getElementById('progress-label').classList.remove('hidden');
+
+  const suffix = document.getElementById('filename-suffix').value;
+  const xmlPath = sheetXmlNames[currentSheet];
+  const map = getAgencyMap();
+  const total = map.size;
+  let done = 0;
+
+  const origXml = new TextDecoder().decode(zipEntries[xmlPath]);
+  const sdStart = origXml.indexOf('<sheetData>');
+  const sdEnd = origXml.indexOf('</sheetData>');
+  const beforeData = origXml.slice(0, sdStart + '<sheetData>'.length);
+  const afterData = origXml.slice(sdEnd);
+
+  const rows = parsedRows[xmlPath] || [];
+  const headerXml = rows.filter(rd => rd.wsRowNum <= headerRowNum).map(rd => rd.rowXml).join('\n');
+
+  const zipObj = {};
+  const resultItems = [];
+
+  for (const [agency, agencyRows] of map) {
+    let newRowNum = headerRowNum + 1;
+    const dataXml = agencyRows.map(rd => {
+      let rx = rd.rowXml;
+      rx = rx.replace(/(<row\s[^>]*\br=")(\d+)(")/, (_,a,_n,b) => a+newRowNum+b);
+      rx = rx.replace(/(\br="([A-Z]+))(\d+)(")/g, (_,a,_c,_n,b) => a+newRowNum+b);
+      newRowNum++;
+      return rx;
+    }).join('\n');
+
+    const newSheetXml = beforeData+'\n'+headerXml+'\n'+dataXml+'\n'+afterData;
+
+    const newZip = {};
+    for (const [path, data] of Object.entries(zipEntries)) {
+      if (path === xmlPath) newZip[path] = fflate.strToU8(newSheetXml);
+      else if (path === 'xl/calcChain.xml') continue;
+      else newZip[path] = data;
+    }
+
+    const zipped = fflate.zipSync(newZip, { level: 0 });
+    const filename = agency + (suffix ? '_'+suffix : '') + '.xlsx';
+    zipObj[filename] = zipped;
+    resultItems.push({ name: filename, count: agencyRows.length });
+
+    done++;
+    document.getElementById('progress-bar').style.width = Math.round(done/total*100)+'%';
+    document.getElementById('progress-label').textContent = done+' / '+total+' 처리 중...';
+    await tick();
+  }
+
+  document.getElementById('progress-label').textContent = 'ZIP 생성 중...';
+  await tick();
+  const finalZip = fflate.zipSync(zipObj, { level: 0 });
+  const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  triggerDownload(finalZip, '대행사별_분할파일_'+today+'.zip');
+  showResults(resultItems);
+}
+
+function triggerDownload(data, filename) {
+  const blob = new Blob([data], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
+function showResults(items) {
+  const list = document.getElementById('result-list');
+  list.innerHTML = '';
+  items.forEach(f => {
+    const item = document.createElement('div');
+    item.className = 'result-item';
+    item.innerHTML = `<svg class="icon icon-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span class="filename">${f.name}</span><span class="row-count">${f.count}행</span>`;
+    list.appendChild(item);
+  });
+  document.getElementById('result-card').classList.remove('hidden');
+  document.getElementById('progress-label').textContent = '완료 — ZIP 파일로 다운로드되었습니다.';
+  document.getElementById('split-btn').innerHTML = '✓ &nbsp;다운로드 완료';
+}
+
+function tick() { return new Promise(r => setTimeout(r, 0)); }
+</script>
+</body>
+</html>
